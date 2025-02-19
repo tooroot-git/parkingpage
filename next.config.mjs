@@ -1,21 +1,38 @@
+const CompressionPlugin = require('compression-webpack-plugin');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone', // הקטנת ה-build לתיקייה נפרדת
+  output: 'standalone',
   experimental: {
     modularizeImports: {
       lodash: {
-        transform: 'lodash/{{member}}', // טעינה חלקית של Lodash
+        transform: 'lodash/{{member}}',
       },
     },
   },
-  webpack: (config) => {
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      config.plugins.push(
+        new CompressionPlugin({
+          algorithm: 'brotliCompress', // ברירת מחדל: gzip. אבל Brotli עדיף מבחינת דחיסה
+          filename: '[path][base].br',
+          test: /\.(js|css|html|svg)$/,
+          threshold: 10240, // דוחס רק קבצים מעל 10KB
+          minRatio: 0.7, // היחס בין הקובץ לפני ואחרי הדחיסה
+        })
+      );
+    }
+
     config.optimization.splitChunks = {
       chunks: 'all',
-      maxSize: 20000000, // שינוי ל-20MB כדי לוודא שאף קובץ לא חורג מהמגבלה של Cloudflare
-      minSize: 100000, // מאפשר קבצים קטנים יותר כדי למנוע חבילות גדולות
-      maxAsyncSize: 20000000, // גם בקבצים Async לא לעלות מעל 20MB
-      maxInitialSize: 20000000, // בקבצים הראשונים שנטענים לא לעלות על 20MB
+      maxSize: 20000000, // מגביל כל צ'אנק ל-20MB
+      minSize: 50000,
     };
+
+    if (!dev) {
+      config.devtool = false; // ביטול Sourcemaps בפרודקשן
+    }
+
     return config;
   },
 };
